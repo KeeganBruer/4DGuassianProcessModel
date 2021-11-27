@@ -73,8 +73,8 @@ class TrainingData(Dataset):
 
             x_context.append(end_frame["sample_set_x"][ridx3])
             y_context.append([end_frame["sample_set_y"][ridx3]])
-        x = torch.Tensor(np.array(x_context)).to(self.device)
-        y = torch.Tensor(np.array(y_context)).to(self.device)
+        x = torch.Tensor(np.array([x_context])).to(self.device)
+        y = torch.Tensor(np.array([y_context])).to(self.device)
         x_t = torch.Tensor(np.array(x_target)).to(self.device)
         y_t = torch.Tensor(np.array(y_target)).to(self.device)
         print("\tFinished Getting Data")
