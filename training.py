@@ -1,16 +1,23 @@
 import torch
 import gpytorch
 import json
+import os
 
 
 from TrainingDataset import TrainingData
 from Models import GPModel
 
+
+config_path = ""
+if (len(sys.argv) > 1):
+    config_path = sys.argv[1]
 config = {
     "data_directory":"./training_data/",
     "save_directory": "./results",
     "epochs": 100,
 }
+with open(config_path if config_path != "" else "./training_config.json") as config_file:
+    config = json.load(config_file)
 
 if torch.cuda.is_available():  # If GPU available
     output_device = torch.device('cuda:0')  # GPU
@@ -18,7 +25,13 @@ else:
     output_device = torch.device('cpu:0')
 
 
-dataloader = TrainingData(num_samples=200, points_per_file=10000, max_points=3000, path_to_data=config["data_directory"], device=output_device)
+dataloader = TrainingData(
+    num_samples=200, 
+    points_per_file=10000, 
+    max_points=3000, 
+    path_to_data=config["data_directory"], 
+    device=output_device
+)
 
 train_x, train_y, test_x, test_y = dataloader.__getitem__(0)
 batch_shape = len(train_x)
@@ -47,6 +60,8 @@ mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
 
 losses = []
 for i in range(config["epochs"]):
+    if not os.path.exists(config["save_directory"] + "/epoch_{}".format(i+1)):
+        os.makedirs(config["save_directory"] + "/epoch_{}".format(i+1))
     # Within each iteration, we will go over each minibatch of data
     avg_loss = 0
     for j in range(len(dataloader)):
@@ -64,10 +79,15 @@ for i in range(config["epochs"]):
         avg_loss += mean_.item()
         mean_.backward()
         optimizer.step()
+        torch.save(model.state_dict(), config["save_directory"] + '/model.pt')
+        torch.save(likelihood.state_dict(), config["save_directory"] + '/likelihood.pt')
+        
     avg_loss = avg_loss/len(dataloader)
     losses.append(avg_loss)
-    with open(config["save_directory"] + '/losses.json', 'w') as f:
+    with open(config["save_directory"] + "/epoch_{}".format(i+1)+ '/losses.json', 'w') as f:
         json.dump(losses, f, indent=4)
-    torch.save(model.state_dict(), config["save_directory"] + '/model.pt')
+    torch.save(model.state_dict(), config["save_directory"] + "/epoch_{}".format(i+1)+ '/model.pt')
+    torch.save(likelihood.state_dict(), config["save_directory"] + "/epoch_{}".format(i+1) + '/likelihood.pt')
+
     torch.cuda.empty_cache()
 print(losses)
